@@ -1,73 +1,40 @@
-import { Platform, StyleSheet, Text, type TextProps } from 'react-native';
+import type React from 'react';
 
-import { Fonts, ThemeColor } from '@/constants/theme';
-import { useTheme } from '@/hooks/use-theme';
+import { Text } from '@/tw';
+import { cn } from '@/utils/cn';
 
-export type ThemedTextProps = TextProps & {
+import { ThemeColor } from '@/constants/theme';
+
+export type ThemedTextProps = React.ComponentProps<typeof Text> & {
   type?: 'default' | 'title' | 'small' | 'smallBold' | 'subtitle' | 'link' | 'linkPrimary' | 'code';
   themeColor?: ThemeColor;
+  className?: string;
 };
 
-export function ThemedText({ style, type = 'default', themeColor, ...rest }: ThemedTextProps) {
-  const theme = useTheme();
+const textColorClasses: Record<ThemeColor, string> = {
+  text: 'text-app-text',
+  background: 'text-app-background',
+  backgroundElement: 'text-app-background-element',
+  backgroundSelected: 'text-app-background-selected',
+  textSecondary: 'text-app-text-secondary',
+};
 
+const typeClasses: Record<NonNullable<ThemedTextProps['type']>, string> = {
+  default: 'text-base font-medium leading-6',
+  title: 'text-5xl font-semibold leading-[52px]',
+  small: 'text-sm font-medium leading-5',
+  smallBold: 'text-sm font-bold leading-5',
+  subtitle: 'text-[32px] font-semibold leading-[44px]',
+  link: 'text-sm leading-[30px]',
+  linkPrimary: 'text-sm leading-[30px] text-app-link',
+  code: 'font-mono text-xs font-medium android:font-bold',
+};
+
+export function ThemedText({ className, type = 'default', themeColor, ...rest }: ThemedTextProps) {
   return (
     <Text
-      style={[
-        { color: theme[themeColor ?? 'text'] },
-        type === 'default' && styles.default,
-        type === 'title' && styles.title,
-        type === 'small' && styles.small,
-        type === 'smallBold' && styles.smallBold,
-        type === 'subtitle' && styles.subtitle,
-        type === 'link' && styles.link,
-        type === 'linkPrimary' && styles.linkPrimary,
-        type === 'code' && styles.code,
-        style,
-      ]}
+      className={cn(textColorClasses[themeColor ?? 'text'], typeClasses[type], className)}
       {...rest}
     />
   );
 }
-
-const styles = StyleSheet.create({
-  small: {
-    fontSize: 14,
-    lineHeight: 20,
-    fontWeight: 500,
-  },
-  smallBold: {
-    fontSize: 14,
-    lineHeight: 20,
-    fontWeight: 700,
-  },
-  default: {
-    fontSize: 16,
-    lineHeight: 24,
-    fontWeight: 500,
-  },
-  title: {
-    fontSize: 48,
-    fontWeight: 600,
-    lineHeight: 52,
-  },
-  subtitle: {
-    fontSize: 32,
-    lineHeight: 44,
-    fontWeight: 600,
-  },
-  link: {
-    lineHeight: 30,
-    fontSize: 14,
-  },
-  linkPrimary: {
-    lineHeight: 30,
-    fontSize: 14,
-    color: '#3c87f7',
-  },
-  code: {
-    fontFamily: Fonts.mono,
-    fontWeight: Platform.select({ android: 700 }) ?? 500,
-    fontSize: 12,
-  },
-});

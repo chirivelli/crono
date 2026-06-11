@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "crono",
+    "name": "Crono",
     "slug": "crono",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -34,7 +34,8 @@
             "imageWidth": 76
           }
         }
-      ]
+      ],
+      "expo-image"
     ],
     "experiments": {
       "typedRoutes": true,
