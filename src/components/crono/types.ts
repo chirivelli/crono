@@ -2,6 +2,7 @@ export type CronoList = {
   id: string;
   name: string;
   color: string;
+  kind?: 'list' | 'all' | 'today' | 'completed';
 };
 
 export type Recurrence = 'none' | 'daily' | 'weekly' | 'monthly';

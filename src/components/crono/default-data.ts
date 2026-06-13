@@ -2,7 +2,10 @@ import { parseTaskInput } from './task-parser';
 import type { CronoList, Task } from './types';
 
 export const defaultLists: CronoList[] = [
-  { id: 'today', name: 'Today', color: '#2563eb' },
+  { id: 'all', name: 'All', color: '#7c3aed', kind: 'all' },
+  { id: 'today', name: 'Today', color: '#2563eb', kind: 'today' },
+  { id: 'inbox', name: 'Inbox', color: '#64748b', kind: 'list' },
+  { id: 'completed', name: 'Completed', color: '#111827', kind: 'completed' },
   { id: 'home', name: 'Home', color: '#16a34a' },
   { id: 'work', name: 'Work', color: '#f97316' },
 ];
@@ -13,7 +16,7 @@ export function createDefaultTasks(): Task[] {
   return [
     createDefaultTask({
       id: '1',
-      listId: 'today',
+      listId: 'inbox',
       title: 'Plan weekend groceries',
       text: 'Plan weekend groceries today evening',
     }),
