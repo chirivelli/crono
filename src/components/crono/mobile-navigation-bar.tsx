@@ -10,6 +10,14 @@ const items = [
   { href: '/settings', icon: 'settings', label: 'Settings' },
 ] as const;
 
+function isActiveRoute(href: (typeof items)[number]['href'], pathname: string) {
+  if (href === '/lists') {
+    return pathname === '/' || pathname === '/lists' || (pathname.startsWith('/lists/') && pathname !== '/lists/today');
+  }
+
+  return pathname === href;
+}
+
 export function MobileNavigationBar() {
   const pathname = usePathname();
 
@@ -17,7 +25,7 @@ export function MobileNavigationBar() {
     <View className="border-t border-gray-200 bg-white px-4 pb-4 pt-2">
       <View className="flex-row items-center justify-around">
         {items.map(item => {
-          const active = item.href === '/lists' ? pathname === '/' || pathname.startsWith('/lists') : pathname === item.href;
+          const active = isActiveRoute(item.href, pathname);
 
           return (
             <Link key={item.href} href={item.href} asChild>

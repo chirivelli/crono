@@ -1,6 +1,5 @@
 import { router } from 'expo-router';
 import { useState } from 'react';
-import { Alert } from 'react-native';
 
 import { Pressable, SafeAreaView, ScrollView, Text, TextInput, View } from '@/tw';
 
@@ -9,8 +8,11 @@ import { useCrono } from './crono-context';
 import { canDeleteList, getListCount } from './list-filters';
 
 export function CronoListsPage() {
-  const { lists, tasks, recentlyCompletedTaskIds, addList, deleteList } = useCrono();
+  const { lists, tasks, recentlyCompletedTaskIds, addList, renameList, deleteList } = useCrono();
   const [newListName, setNewListName] = useState('');
+  const [openOptionsListId, setOpenOptionsListId] = useState<string | null>(null);
+  const [editingListId, setEditingListId] = useState<string | null>(null);
+  const [editingListName, setEditingListName] = useState('');
 
   function createList() {
     const trimmed = newListName.trim();
@@ -23,19 +25,16 @@ export function CronoListsPage() {
     router.push(`/lists/${list.id}`);
   }
 
-  function openListOptions(list: (typeof lists)[number]) {
-    Alert.alert(list.name, 'List options', [
-      { text: 'Cancel', style: 'cancel' },
-      ...(canDeleteList(list)
-        ? [
-            {
-              text: 'Delete list',
-              style: 'destructive' as const,
-              onPress: () => deleteList(list),
-            },
-          ]
-        : []),
-    ]);
+  function startRename(list: (typeof lists)[number]) {
+    setEditingListId(list.id);
+    setEditingListName(list.name);
+    setOpenOptionsListId(null);
+  }
+
+  function submitRename(list: (typeof lists)[number]) {
+    renameList(list, editingListName);
+    setEditingListId(null);
+    setEditingListName('');
   }
 
   return (
@@ -43,37 +42,78 @@ export function CronoListsPage() {
       <ScrollView contentContainerClassName="gap-5 px-5 py-3" showsVerticalScrollIndicator={false}>
         <Text className="text-[34px] font-bold tracking-normal text-gray-900">Crono</Text>
 
-        <View className="gap-2">
+        <View className="z-10 gap-2">
           {lists.map(list => {
             const count = getListCount(list, tasks, recentlyCompletedTaskIds);
+            const optionsOpen = openOptionsListId === list.id;
 
             return (
               <Pressable
                 key={list.id}
-                onPress={() => router.push(`/lists/${list.id}`)}
-                className="min-h-14 flex-row items-center gap-3 rounded-lg border border-gray-200 bg-white px-4 py-3">
+                onPress={() => {
+                  setOpenOptionsListId(null);
+                  router.push(`/lists/${list.id}`);
+                }}
+                className={optionsOpen ? 'relative z-50 min-h-14 flex-row items-center gap-3 rounded-lg border border-gray-200 bg-white px-4 py-3' : 'relative z-0 min-h-14 flex-row items-center gap-3 rounded-lg border border-gray-200 bg-white px-4 py-3'}>
                 <View className="h-9 w-9 items-center justify-center rounded-lg bg-gray-100">
                   <ListIcon color={list.color} list={list} size={19} />
                 </View>
-                <Text className="flex-1 text-base font-semibold text-gray-900">{list.name}</Text>
+                {editingListId === list.id ? (
+                  <TextInput
+                    autoFocus
+                    value={editingListName}
+                    onChangeText={setEditingListName}
+                    onBlur={() => submitRename(list)}
+                    onSubmitEditing={() => submitRename(list)}
+                    returnKeyType="done"
+                    className="min-h-[34px] flex-1 rounded-md border border-gray-200 bg-white px-2 text-base font-semibold text-gray-900"
+                  />
+                ) : (
+                  <Text className="flex-1 text-base font-semibold text-gray-900">{list.name}</Text>
+                )}
                 <Text className="text-base font-bold text-gray-900">{count}</Text>
                 {!isSmartOrInbox(list) && (
-                  <Pressable
-                    accessibilityLabel={`${list.name} options`}
-                    onPress={event => {
-                      event.stopPropagation();
-                      openListOptions(list);
-                    }}
-                    className="rounded-lg p-1.5">
-                    <CronoIcon color="#9ca3af" name="more" size={19} />
-                  </Pressable>
+                  <View>
+                    <Pressable
+                      accessibilityLabel={`${list.name} options`}
+                      onPress={event => {
+                        event.stopPropagation();
+                        setOpenOptionsListId(current => (current === list.id ? null : list.id));
+                      }}
+                      className="rounded-lg p-1.5">
+                      <CronoIcon color="#9ca3af" name="more" size={19} />
+                    </Pressable>
+                    {optionsOpen && (
+                      <View className="absolute right-0 top-8 z-50 min-w-32 rounded-lg border border-gray-200 bg-white p-1 shadow-lg">
+                        <Pressable
+                          onPress={event => {
+                            event.stopPropagation();
+                            startRename(list);
+                          }}
+                          className="rounded-md px-3 py-2">
+                          <Text className="text-[15px] font-semibold text-gray-900">Rename</Text>
+                        </Pressable>
+                        {canDeleteList(list) && (
+                          <Pressable
+                            onPress={event => {
+                              event.stopPropagation();
+                              setOpenOptionsListId(null);
+                              deleteList(list);
+                            }}
+                            className="rounded-md px-3 py-2">
+                            <Text className="text-[15px] font-semibold text-red-600">Delete</Text>
+                          </Pressable>
+                        )}
+                      </View>
+                    )}
+                  </View>
                 )}
               </Pressable>
             );
           })}
         </View>
 
-        <View className="flex-row gap-2">
+        <View className="z-0 flex-row gap-2">
           <TextInput
             value={newListName}
             onChangeText={setNewListName}

@@ -12,7 +12,7 @@ import { TaskList } from './task-list';
 export { CronoProvider };
 
 export function CronoApp({ listId }: { listId?: string }) {
-  const { lists, tasks, recentlyCompletedTaskIds, addList, deleteList } = useCrono();
+  const { lists, tasks, recentlyCompletedTaskIds, addList, renameList, deleteList } = useCrono();
   const { width } = useWindowDimensions();
   const selectedList = lists.find(list => list.id === listId) ?? getDefaultList(lists);
   const showSidebar = width >= 760;
@@ -45,6 +45,7 @@ export function CronoApp({ listId }: { listId?: string }) {
             recentlyCompletedTaskIds={recentlyCompletedTaskIds}
             selectedListId={selectedList.id}
             onCreateList={createList}
+            onRenameList={renameList}
             onDeleteList={removeList}
             showSidebar={showSidebar}
           />

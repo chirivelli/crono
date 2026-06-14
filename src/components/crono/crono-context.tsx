@@ -11,6 +11,7 @@ type CronoContextValue = {
   tasks: Task[];
   recentlyCompletedTaskIds: Set<string>;
   addList: (name: string) => CronoList;
+  renameList: (list: CronoList, name: string) => void;
   deleteList: (list: CronoList) => Promise<void>;
   addTask: (input: TaskInput) => Promise<void>;
   updateTask: (task: Task, input: TaskUpdateInput) => Promise<void>;
@@ -43,6 +44,19 @@ export function CronoProvider({ children }: { children: ReactNode }) {
 
     setLists(current => [...current, list]);
     return list;
+  }
+
+  function renameList(list: CronoList, name: string) {
+    if (!canDeleteList(list)) {
+      return;
+    }
+
+    const trimmed = name.trim();
+    if (!trimmed) {
+      return;
+    }
+
+    setLists(current => current.map(item => (item.id === list.id ? { ...item, name: trimmed } : item)));
   }
 
   async function deleteList(list: CronoList) {
@@ -145,7 +159,8 @@ export function CronoProvider({ children }: { children: ReactNode }) {
   }
 
   return (
-    <CronoContext.Provider value={{ lists, tasks, recentlyCompletedTaskIds, addList, deleteList, addTask, updateTask, deleteTask, toggleTask }}>
+    <CronoContext.Provider
+      value={{ lists, tasks, recentlyCompletedTaskIds, addList, renameList, deleteList, addTask, updateTask, deleteTask, toggleTask }}>
       {children}
     </CronoContext.Provider>
   );
