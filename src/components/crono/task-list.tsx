@@ -9,11 +9,9 @@ import type { CronoList } from './types';
 export function TaskList({
   list,
   lists,
-  showListsLink = false,
 }: {
   list: CronoList;
   lists: CronoList[];
-  showListsLink?: boolean;
 }) {
   const { tasks, recentlyCompletedTaskIds, addTask, updateTask, deleteTask, toggleTask } = useCrono();
   const visibleTasks = getVisibleTasks(list, tasks, recentlyCompletedTaskIds);
@@ -32,11 +30,9 @@ export function TaskList({
 
   return (
     <View className="min-w-0 flex-1 pt-2.5">
-      {showListsLink && (
-        <Link href="/lists" className="mb-3 self-start text-[15px] font-semibold text-blue-600">
-          Lists
-        </Link>
-      )}
+      <Link href="/lists" className="mb-3 self-start text-[15px] font-semibold text-blue-600">
+        Lists
+      </Link>
       <View className="mb-2 flex-row items-center justify-between">
         <Text className="text-[32px] font-bold text-gray-900">{list.name}</Text>
         <Text className="text-sm text-gray-500">

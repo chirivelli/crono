@@ -15,7 +15,7 @@ export function CronoApp({ listId }: { listId?: string }) {
   const { lists, tasks, recentlyCompletedTaskIds, addList, renameList, deleteList } = useCrono();
   const { width } = useWindowDimensions();
   const selectedList = lists.find(list => list.id === listId) ?? getDefaultList(lists);
-  const showSidebar = width >= 760;
+  const showSidebar = width >= 720;
 
   function createList(name: string) {
     const trimmed = name.trim();
@@ -37,20 +37,22 @@ export function CronoApp({ listId }: { listId?: string }) {
 
   return (
     <SafeAreaView className="flex-1 bg-slate-50">
-      <View className={cn('flex-1 px-5 pt-2.5', showSidebar && 'flex-row gap-6 px-0 pt-0')}>
-        {showSidebar && (
-          <ListNavigation
-            lists={lists}
-            tasks={tasks}
-            recentlyCompletedTaskIds={recentlyCompletedTaskIds}
-            selectedListId={selectedList.id}
-            onCreateList={createList}
-            onRenameList={renameList}
-            onDeleteList={removeList}
-            showSidebar={showSidebar}
-          />
-        )}
-        <TaskList list={selectedList} lists={lists} showListsLink={!showSidebar} />
+      <View className={cn('flex-1 px-5 pt-2.5', showSidebar && 'pl-0 pt-0')}>
+        <View className={cn('min-h-0 flex-1', showSidebar && 'flex-row gap-6')}>
+          {showSidebar && (
+            <ListNavigation
+              lists={lists}
+              tasks={tasks}
+              recentlyCompletedTaskIds={recentlyCompletedTaskIds}
+              selectedListId={selectedList.id}
+              onCreateList={createList}
+              onRenameList={renameList}
+              onDeleteList={removeList}
+              showSidebar={showSidebar}
+            />
+          )}
+          <TaskList list={selectedList} lists={lists} />
+        </View>
       </View>
     </SafeAreaView>
   );

@@ -10,7 +10,9 @@ import { canDeleteList, getListCount } from './list-filters';
 export function CronoListsPage() {
   const { lists, tasks, recentlyCompletedTaskIds, addList, renameList, deleteList } = useCrono();
   const [newListName, setNewListName] = useState('');
+  const [isCreatingList, setIsCreatingList] = useState(false);
   const [openOptionsListId, setOpenOptionsListId] = useState<string | null>(null);
+  const [hoveredListId, setHoveredListId] = useState<string | null>(null);
   const [editingListId, setEditingListId] = useState<string | null>(null);
   const [editingListName, setEditingListName] = useState('');
 
@@ -22,6 +24,7 @@ export function CronoListsPage() {
 
     const list = addList(trimmed);
     setNewListName('');
+    setIsCreatingList(false);
     router.push(`/lists/${list.id}`);
   }
 
@@ -40,16 +43,67 @@ export function CronoListsPage() {
   return (
     <SafeAreaView className="flex-1 bg-slate-50">
       <ScrollView contentContainerClassName="gap-5 px-5 py-3" showsVerticalScrollIndicator={false}>
-        <Text className="text-[34px] font-bold tracking-normal text-gray-900">Crono</Text>
+        <View className="flex-row items-center justify-between gap-3">
+          <Text className="text-[34px] font-bold tracking-normal text-gray-900">Crono</Text>
+          <View className="flex-row items-center gap-2">
+            <Pressable
+              accessibilityLabel="Settings"
+              onPress={() => {
+                setOpenOptionsListId(null);
+                router.push('/settings');
+              }}
+              className="h-[42px] w-[42px] items-center justify-center rounded-lg border border-gray-200 bg-white">
+              <CronoIcon color="#111827" name="settings" size={21} strokeWidth={1.8} />
+            </Pressable>
+            <Pressable
+              accessibilityLabel="Add list"
+              onPress={() => {
+                setOpenOptionsListId(null);
+                setIsCreatingList(true);
+              }}
+              className="h-[42px] w-[42px] items-center justify-center rounded-lg bg-gray-900">
+              <CronoIcon color="#ffffff" name="add" size={22} strokeWidth={2} />
+            </Pressable>
+          </View>
+        </View>
+
+        {isCreatingList && (
+          <View className="z-0 flex-row gap-2">
+            <TextInput
+              autoFocus
+              value={newListName}
+              onChangeText={setNewListName}
+              onSubmitEditing={createList}
+              placeholder="New list"
+              placeholderTextColor="#9ca3af"
+              returnKeyType="done"
+              className="min-h-[42px] flex-1 rounded-lg border border-gray-200 bg-white px-3 text-[15px] text-gray-900"
+            />
+            <Pressable onPress={createList} className="h-[42px] w-[42px] items-center justify-center rounded-lg bg-gray-900">
+              <CronoIcon color="#ffffff" name="add" size={22} strokeWidth={2} />
+            </Pressable>
+          </View>
+        )}
 
         <View className="z-10 gap-2">
           {lists.map(list => {
             const count = getListCount(list, tasks, recentlyCompletedTaskIds);
             const optionsOpen = openOptionsListId === list.id;
+            const canShowOptions = !isSmartOrInbox(list);
+            const optionsVisible = canShowOptions && (hoveredListId === list.id || optionsOpen);
 
             return (
               <Pressable
                 key={list.id}
+                onHoverIn={() => setHoveredListId(list.id)}
+                onHoverOut={() => setHoveredListId(current => (current === list.id ? null : current))}
+                onPointerEnter={() => setHoveredListId(list.id)}
+                onPointerLeave={() => setHoveredListId(current => (current === list.id ? null : current))}
+                onLongPress={() => {
+                  if (canShowOptions) {
+                    setOpenOptionsListId(list.id);
+                  }
+                }}
                 onPress={() => {
                   setOpenOptionsListId(null);
                   router.push(`/lists/${list.id}`);
@@ -71,62 +125,51 @@ export function CronoListsPage() {
                 ) : (
                   <Text className="flex-1 text-base font-semibold text-gray-900">{list.name}</Text>
                 )}
-                <Text className="text-base font-bold text-gray-900">{count}</Text>
-                {!isSmartOrInbox(list) && (
-                  <View>
-                    <Pressable
-                      accessibilityLabel={`${list.name} options`}
-                      onPress={event => {
-                        event.stopPropagation();
-                        setOpenOptionsListId(current => (current === list.id ? null : list.id));
-                      }}
-                      className="rounded-lg p-1.5">
-                      <CronoIcon color="#9ca3af" name="more" size={19} />
-                    </Pressable>
-                    {optionsOpen && (
-                      <View className="absolute right-0 top-8 z-50 min-w-32 rounded-lg border border-gray-200 bg-white p-1 shadow-lg">
-                        <Pressable
-                          onPress={event => {
-                            event.stopPropagation();
-                            startRename(list);
-                          }}
-                          className="rounded-md px-3 py-2">
-                          <Text className="text-[15px] font-semibold text-gray-900">Rename</Text>
-                        </Pressable>
-                        {canDeleteList(list) && (
+                <View className="relative w-10 items-end justify-center">
+                  {canShowOptions && optionsVisible ? (
+                    <View>
+                      <Pressable
+                        accessibilityLabel={`${list.name} options`}
+                        onPress={event => {
+                          event.stopPropagation();
+                          setOpenOptionsListId(current => (current === list.id ? null : list.id));
+                        }}
+                        className="rounded-lg p-1.5">
+                        <CronoIcon color="#9ca3af" name="more" size={19} />
+                      </Pressable>
+                      {optionsOpen && (
+                        <View className="absolute right-0 top-8 z-50 min-w-32 rounded-lg border border-gray-200 bg-white p-1 shadow-lg">
                           <Pressable
                             onPress={event => {
                               event.stopPropagation();
-                              setOpenOptionsListId(null);
-                              deleteList(list);
+                              startRename(list);
                             }}
                             className="rounded-md px-3 py-2">
-                            <Text className="text-[15px] font-semibold text-red-600">Delete</Text>
+                            <Text className="text-[15px] font-semibold text-gray-900">Rename</Text>
                           </Pressable>
-                        )}
-                      </View>
-                    )}
-                  </View>
-                )}
+                          {canDeleteList(list) && (
+                            <Pressable
+                              onPress={event => {
+                                event.stopPropagation();
+                                setOpenOptionsListId(null);
+                                deleteList(list);
+                              }}
+                              className="rounded-md px-3 py-2">
+                              <Text className="text-[15px] font-semibold text-red-600">Delete</Text>
+                            </Pressable>
+                          )}
+                        </View>
+                      )}
+                    </View>
+                  ) : (
+                    <Text className="text-right text-base font-bold text-gray-900">{count}</Text>
+                  )}
+                </View>
               </Pressable>
             );
           })}
         </View>
 
-        <View className="z-0 flex-row gap-2">
-          <TextInput
-            value={newListName}
-            onChangeText={setNewListName}
-            onSubmitEditing={createList}
-            placeholder="New list"
-            placeholderTextColor="#9ca3af"
-            returnKeyType="done"
-            className="min-h-[42px] flex-1 rounded-lg border border-gray-200 bg-white px-3 text-[15px] text-gray-900"
-          />
-          <Pressable onPress={createList} className="h-[42px] w-[42px] items-center justify-center rounded-lg bg-gray-900">
-            <CronoIcon color="#ffffff" name="add" size={22} strokeWidth={2} />
-          </Pressable>
-        </View>
       </ScrollView>
     </SafeAreaView>
   );
