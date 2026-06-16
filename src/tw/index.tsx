@@ -23,6 +23,7 @@ export { useNativeVariable as useCSSVariable } from 'react-native-css';
 
 export type ClassNameProps = {
   className?: string;
+  dataSet?: Record<string, string>;
 };
 
 const cssElement = useCssElement as unknown as (

@@ -50,3 +50,19 @@
     --color-app-link: var(--color-app-link);
   }
 }
+
+[data-list-menu] {
+  opacity: 0;
+  pointer-events: none;
+}
+
+[data-list-row]:hover [data-list-count],
+[data-list-row][data-options-open='true'] [data-list-count] {
+  opacity: 0;
+}
+
+[data-list-row]:hover [data-list-menu],
+[data-list-row][data-options-open='true'] [data-list-menu] {
+  opacity: 1;
+  pointer-events: auto;
+}

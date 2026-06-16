@@ -12,7 +12,6 @@ export function CronoListsPage() {
   const [newListName, setNewListName] = useState('');
   const [isCreatingList, setIsCreatingList] = useState(false);
   const [openOptionsListId, setOpenOptionsListId] = useState<string | null>(null);
-  const [hoveredListId, setHoveredListId] = useState<string | null>(null);
   const [editingListId, setEditingListId] = useState<string | null>(null);
   const [editingListName, setEditingListName] = useState('');
 
@@ -90,15 +89,10 @@ export function CronoListsPage() {
             const count = getListCount(list, tasks, recentlyCompletedTaskIds);
             const optionsOpen = openOptionsListId === list.id;
             const canShowOptions = !isSmartOrInbox(list);
-            const optionsVisible = canShowOptions && (hoveredListId === list.id || optionsOpen);
-
             return (
               <Pressable
                 key={list.id}
-                onHoverIn={() => setHoveredListId(list.id)}
-                onHoverOut={() => setHoveredListId(current => (current === list.id ? null : current))}
-                onPointerEnter={() => setHoveredListId(list.id)}
-                onPointerLeave={() => setHoveredListId(current => (current === list.id ? null : current))}
+                dataSet={{ listRow: list.id, optionsOpen: optionsOpen ? 'true' : 'false' }}
                 onLongPress={() => {
                   if (canShowOptions) {
                     setOpenOptionsListId(list.id);
@@ -125,46 +119,49 @@ export function CronoListsPage() {
                 ) : (
                   <Text className="flex-1 text-base font-semibold text-gray-900">{list.name}</Text>
                 )}
-                <View className="relative w-10 items-end justify-center">
-                  {canShowOptions && optionsVisible ? (
-                    <View>
-                      <Pressable
-                        accessibilityLabel={`${list.name} options`}
-                        onPress={event => {
-                          event.stopPropagation();
-                          setOpenOptionsListId(current => (current === list.id ? null : list.id));
-                        }}
-                        className="rounded-lg p-1.5">
-                        <CronoIcon color="#9ca3af" name="more" size={19} />
-                      </Pressable>
-                      {optionsOpen && (
-                        <View className="absolute right-0 top-8 z-50 min-w-32 rounded-lg border border-gray-200 bg-white p-1 shadow-lg">
+                {canShowOptions ? (
+                  <Pressable
+                    accessibilityLabel={`${list.name} options`}
+                    onPress={event => {
+                      event.stopPropagation();
+                      setOpenOptionsListId(current => (current === list.id ? null : list.id));
+                    }}
+                    className="relative w-10 items-end justify-center">
+                    <Text dataSet={{ listCount: list.id }} className="text-right text-base font-bold text-gray-400">
+                      {count}
+                    </Text>
+                    <View dataSet={{ listMenu: list.id }} className="absolute right-0 w-10 items-end justify-center">
+                      <CronoIcon color="#9ca3af" name="more" size={19} />
+                    </View>
+                    {optionsOpen && (
+                      <View className="absolute right-0 top-8 z-50 min-w-32 rounded-lg border border-gray-200 bg-white p-1 shadow-lg">
+                        <Pressable
+                          onPress={event => {
+                            event.stopPropagation();
+                            startRename(list);
+                          }}
+                          className="rounded-md px-3 py-2">
+                          <Text className="text-[15px] font-semibold text-gray-900">Rename</Text>
+                        </Pressable>
+                        {canDeleteList(list) && (
                           <Pressable
                             onPress={event => {
                               event.stopPropagation();
-                              startRename(list);
+                              setOpenOptionsListId(null);
+                              deleteList(list);
                             }}
                             className="rounded-md px-3 py-2">
-                            <Text className="text-[15px] font-semibold text-gray-900">Rename</Text>
+                            <Text className="text-[15px] font-semibold text-red-600">Delete</Text>
                           </Pressable>
-                          {canDeleteList(list) && (
-                            <Pressable
-                              onPress={event => {
-                                event.stopPropagation();
-                                setOpenOptionsListId(null);
-                                deleteList(list);
-                              }}
-                              className="rounded-md px-3 py-2">
-                              <Text className="text-[15px] font-semibold text-red-600">Delete</Text>
-                            </Pressable>
-                          )}
-                        </View>
-                      )}
-                    </View>
-                  ) : (
-                    <Text className="text-right text-base font-bold text-gray-900">{count}</Text>
-                  )}
-                </View>
+                        )}
+                      </View>
+                    )}
+                  </Pressable>
+                ) : (
+                  <View className="relative w-10 items-end justify-center">
+                    <Text className="text-right text-base font-bold text-gray-400">{count}</Text>
+                  </View>
+                )}
               </Pressable>
             );
           })}
