@@ -20,15 +20,31 @@ import {
 import type { Recurrence, Task } from './types';
 
 export function TaskRow({
+  canMoveDown = false,
+  canMoveUp = false,
+  dragOverPosition,
+  draggingTaskId,
   sourceListName,
   task,
   onDelete,
+  onMove,
+  onTaskDragEnd,
+  onTaskDragOver,
+  onTaskDragStart,
   onToggle,
   onUpdate,
 }: {
+  canMoveDown?: boolean;
+  canMoveUp?: boolean;
+  dragOverPosition?: 'before' | 'after' | null;
+  draggingTaskId?: string | null;
   sourceListName?: string;
   task: Task;
   onDelete: (task: Task) => Promise<void>;
+  onMove: (taskId: string, targetTaskId: string, position: 'before' | 'after') => void;
+  onTaskDragEnd?: () => void;
+  onTaskDragOver?: (taskId: string, position: 'before' | 'after') => void;
+  onTaskDragStart?: (taskId: string) => void;
   onToggle: (task: Task) => void;
   onUpdate: (task: Task, input: { title: string; dueAt: string | null; dueLabel: string | null; recurrence: Recurrence }) => Promise<void>;
 }) {
@@ -96,72 +112,149 @@ export function TaskRow({
   }
 
   const showSwipeDelete = width < 760 && Platform.OS !== 'web';
+  const showReorderHandle = canMoveUp || canMoveDown;
+  const isDropTarget = Boolean(draggingTaskId && draggingTaskId !== task.id && showReorderHandle);
+  const isDragging = draggingTaskId === task.id;
+  const rowDataSet = showReorderHandle ? { taskId: task.id } : undefined;
+  const dragHandleProps =
+    Platform.OS === 'web' && showReorderHandle
+      ? ({
+          onMouseDown: (event: { clientX: number; clientY: number; preventDefault: () => void }) => {
+            event.preventDefault();
+            onTaskDragStart?.(task.id);
+
+            const getDropTarget = (clientX: number, clientY: number) => {
+              const dropTarget = document
+                .elementFromPoint(clientX, clientY)
+                ?.closest('[data-task-id]');
+              const targetTaskId = dropTarget?.getAttribute('data-task-id') ?? null;
+              if (!dropTarget || !targetTaskId || targetTaskId === task.id) {
+                return null;
+              }
+
+              const bounds = dropTarget.getBoundingClientRect();
+              const position: 'before' | 'after' = clientY < bounds.top + bounds.height / 2 ? 'before' : 'after';
+              return { position, targetTaskId };
+            };
+
+            const handleMouseMove = (mouseEvent: MouseEvent) => {
+              const dropTarget = getDropTarget(mouseEvent.clientX, mouseEvent.clientY);
+              if (dropTarget) {
+                onTaskDragOver?.(dropTarget.targetTaskId, dropTarget.position);
+              }
+            };
+
+            const handleMouseUp = (mouseEvent: MouseEvent) => {
+              const dropTarget = getDropTarget(mouseEvent.clientX, mouseEvent.clientY);
+              if (dropTarget) {
+                onMove(task.id, dropTarget.targetTaskId, dropTarget.position);
+              }
+
+              onTaskDragEnd?.();
+              document.removeEventListener('mousemove', handleMouseMove);
+              document.removeEventListener('mouseup', handleMouseUp);
+            };
+
+            document.addEventListener('mousemove', handleMouseMove);
+            document.addEventListener('mouseup', handleMouseUp);
+          },
+        } as never)
+      : {};
   const row = (
-    <View className="mb-2 flex-row items-start gap-3 rounded-lg border border-gray-200 bg-white p-3">
-      <Pressable
-        onPress={() => onToggle(task)}
+    <View className="relative mb-2">
+      {isDropTarget && dragOverPosition === 'before' && (
+        <View className="absolute -top-[5px] left-0 right-0 z-10 h-[3px] rounded-full bg-blue-500" />
+      )}
+      <View
+        dataSet={rowDataSet}
         className={cn(
-          'mt-px h-[22px] w-[22px] items-center justify-center rounded-[10px] border-[1.5px]',
-          task.completed ? 'border-gray-900 bg-gray-900' : 'border-gray-400'
+          'flex-row items-start gap-3 rounded-lg border bg-white p-3',
+          'border-gray-200',
+          isDragging && 'opacity-50'
         )}>
-        {task.completed && <CronoIcon color="#ffffff" name="check" size={14} strokeWidth={2.4} />}
-      </Pressable>
-      <View className="flex-1">
-        {isEditing ? (
-          <>
-            <HighlightedTaskInput
-              autoFocus
-              value={draftTitle}
-              onBlur={savePlainEdit}
-              onChangeText={setDraftTitle}
-              onSubmitEditing={saveSmartEdit}
-              parsedInput={parsedDraft}
-              className="min-h-5 p-0 text-base font-medium leading-5 text-gray-900"
-            />
-            {(editingDueLabel || editingRecurrence !== 'none') && (
-              <View className="mt-1.5 flex-row flex-wrap gap-2">
-                {editingDueLabelParts.map(part => (
-                  <Text
-                    key={part}
-                    className={cn(
-                      'overflow-hidden rounded-lg bg-gray-100 px-2 py-1 text-[13px] text-gray-600',
-                      editingOverdue && 'text-red-600'
-                    )}>
-                    {part}
-                  </Text>
-                ))}
-                {editingRecurrence !== 'none' && (
-                  <Text className="overflow-hidden rounded-lg bg-gray-100 px-2 py-1 text-[13px] text-gray-600">
-                    Repeats {editingRecurrence}
-                  </Text>
-                )}
-              </View>
-            )}
-          </>
-        ) : (
-          <Pressable onPress={startEditing}>
-            <Text className={cn('text-base font-medium leading-5 text-gray-900', task.completed && 'text-gray-400 line-through')}>
-              {task.title}
-            </Text>
-            {detailParts.length > 0 && (
-              <Text
-                className="mt-1 text-[13px] leading-[18px] text-gray-500"
-                accessibilityLabel={detailParts.map(part => part.value).join(' · ')}>
-                {detailParts.map((part, index) => (
-                  <Text key={part.key}>
-                    {index > 0 && <Text> · </Text>}
-                    <Text className={part.className}>{part.value}</Text>
-                  </Text>
-                ))}
+        <Pressable
+          onPress={() => onToggle(task)}
+          className={cn(
+            'mt-px h-[22px] w-[22px] items-center justify-center rounded-[10px] border-[1.5px]',
+            task.completed ? 'border-gray-900 bg-gray-900' : 'border-gray-400'
+          )}>
+          {task.completed && <CronoIcon color="#ffffff" name="check" size={14} strokeWidth={2.4} />}
+        </Pressable>
+        <View className="flex-1">
+          {isEditing ? (
+            <>
+              <HighlightedTaskInput
+                autoFocus
+                value={draftTitle}
+                onBlur={savePlainEdit}
+                onChangeText={setDraftTitle}
+                onSubmitEditing={saveSmartEdit}
+                parsedInput={parsedDraft}
+                className="min-h-5 p-0 text-base font-medium leading-5 text-gray-900"
+              />
+              {(editingDueLabel || editingRecurrence !== 'none') && (
+                <View className="mt-1.5 flex-row flex-wrap gap-2">
+                  {editingDueLabelParts.map(part => (
+                    <Text
+                      key={part}
+                      className={cn(
+                        'overflow-hidden rounded-lg bg-gray-100 px-2 py-1 text-[13px] text-gray-600',
+                        editingOverdue && 'text-red-600'
+                      )}>
+                      {part}
+                    </Text>
+                  ))}
+                  {editingRecurrence !== 'none' && (
+                    <Text className="overflow-hidden rounded-lg bg-gray-100 px-2 py-1 text-[13px] text-gray-600">
+                      Repeats {editingRecurrence}
+                    </Text>
+                  )}
+                </View>
+              )}
+            </>
+          ) : (
+            <Pressable onPress={startEditing}>
+              <Text className={cn('text-base font-medium leading-5 text-gray-900', task.completed && 'text-gray-400 line-through')}>
+                {task.title}
               </Text>
-            )}
+              {detailParts.length > 0 && (
+                <Text
+                  className="mt-1 text-[13px] leading-[18px] text-gray-500"
+                  accessibilityLabel={detailParts.map(part => part.value).join(' · ')}>
+                  {detailParts.map((part, index) => (
+                    <Text key={part.key}>
+                      {index > 0 && <Text> · </Text>}
+                      <Text className={part.className}>{part.value}</Text>
+                    </Text>
+                  ))}
+                </Text>
+              )}
+            </Pressable>
+          )}
+        </View>
+        {!showSwipeDelete && (
+          <Pressable accessibilityLabel={`Delete ${task.title}`} onPress={() => onDelete(task)} className="rounded-lg px-2 py-1">
+            <CronoIcon color="#9ca3af" name="delete" size={17} />
+          </Pressable>
+        )}
+        {showReorderHandle && (
+          <Pressable
+            {...dragHandleProps}
+            accessibilityLabel={`Reorder ${task.title}`}
+            className="mt-[-1px] h-7 w-5 cursor-grab items-center justify-center rounded-md active:cursor-grabbing">
+            <View className="gap-[3px]">
+              {[0, 1, 2].map(row => (
+                <View key={row} className="flex-row gap-[4px]">
+                  <View className="h-[3px] w-[3px] rounded-full bg-gray-400" />
+                  <View className="h-[3px] w-[3px] rounded-full bg-gray-400" />
+                </View>
+              ))}
+            </View>
           </Pressable>
         )}
       </View>
-      {!showSwipeDelete && (
-        <Pressable accessibilityLabel={`Delete ${task.title}`} onPress={() => onDelete(task)} className="rounded-lg px-2 py-1">
-          <CronoIcon color="#9ca3af" name="delete" size={17} />
-        </Pressable>
+      {isDropTarget && dragOverPosition === 'after' && (
+        <View className="absolute -bottom-[5px] left-0 right-0 z-10 h-[3px] rounded-full bg-blue-500" />
       )}
     </View>
   );

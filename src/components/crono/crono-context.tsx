@@ -16,6 +16,7 @@ type CronoContextValue = {
   addTask: (input: TaskInput) => Promise<void>;
   updateTask: (task: Task, input: TaskUpdateInput) => Promise<void>;
   deleteTask: (task: Task) => Promise<void>;
+  moveTask: (taskId: string, targetTaskId: string, position: 'before' | 'after') => void;
   toggleTask: (task: Task) => Promise<void>;
 };
 
@@ -145,6 +146,40 @@ export function CronoProvider({ children }: { children: ReactNode }) {
     setTasks(current => current.filter(item => item.id !== task.id));
   }
 
+  function moveTask(taskId: string, targetTaskId: string, position: 'before' | 'after') {
+    setTasks(current => {
+      const task = current.find(item => item.id === taskId);
+      const targetTask = current.find(item => item.id === targetTaskId);
+      if (!task || !targetTask || task.id === targetTask.id || task.listId !== targetTask.listId || task.completed || targetTask.completed) {
+        return current;
+      }
+
+      const listTasks = current.filter(item => item.listId === task.listId && !item.completed);
+      const currentListIndex = listTasks.findIndex(item => item.id === task.id);
+      const targetListIndex = listTasks.findIndex(item => item.id === targetTask.id);
+      if (currentListIndex === -1 || targetListIndex === -1) {
+        return current;
+      }
+
+      const reorderedListTasks = [...listTasks];
+      const [movedTask] = reorderedListTasks.splice(currentListIndex, 1);
+      const adjustedTargetIndex = currentListIndex < targetListIndex ? targetListIndex - 1 : targetListIndex;
+      const insertionIndex = position === 'after' ? adjustedTargetIndex + 1 : adjustedTargetIndex;
+      reorderedListTasks.splice(insertionIndex, 0, movedTask);
+
+      let nextListTaskIndex = 0;
+      return current.map(item => {
+        if (item.listId !== task.listId || item.completed) {
+          return item;
+        }
+
+        const nextTask = reorderedListTasks[nextListTaskIndex];
+        nextListTaskIndex += 1;
+        return nextTask;
+      });
+    });
+  }
+
   function clearRecentlyCompletedTask(taskId: string) {
     const timer = recentlyCompletedTimers.current.get(taskId);
     if (timer) {
@@ -160,7 +195,7 @@ export function CronoProvider({ children }: { children: ReactNode }) {
 
   return (
     <CronoContext.Provider
-      value={{ lists, tasks, recentlyCompletedTaskIds, addList, renameList, deleteList, addTask, updateTask, deleteTask, toggleTask }}>
+      value={{ lists, tasks, recentlyCompletedTaskIds, addList, renameList, deleteList, addTask, updateTask, deleteTask, moveTask, toggleTask }}>
       {children}
     </CronoContext.Provider>
   );

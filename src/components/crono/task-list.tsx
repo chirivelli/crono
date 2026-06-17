@@ -1,3 +1,5 @@
+import { useState } from 'react';
+
 import { Link, ScrollView, Text, View } from '@/tw';
 
 import { useCrono } from './crono-context';
@@ -13,10 +15,15 @@ export function TaskList({
   list: CronoList;
   lists: CronoList[];
 }) {
-  const { tasks, recentlyCompletedTaskIds, addTask, updateTask, deleteTask, toggleTask } = useCrono();
+  const { tasks, recentlyCompletedTaskIds, addTask, updateTask, deleteTask, moveTask, toggleTask } = useCrono();
   const visibleTasks = getVisibleTasks(list, tasks, recentlyCompletedTaskIds);
   const completedTasks = list.kind === 'list' ? tasks.filter(task => task.listId === list.id && task.completed) : [];
   const showComposer = !isSmartList(list);
+  const showReorderHandles = !isSmartList(list);
+  const reorderableTaskIds = showReorderHandles ? visibleTasks.filter(task => !task.completed).map(task => task.id) : [];
+  const [draggingTaskId, setDraggingTaskId] = useState<string | null>(null);
+  const [dragOverTaskId, setDragOverTaskId] = useState<string | null>(null);
+  const [dragOverPosition, setDragOverPosition] = useState<'before' | 'after'>('before');
   const allSections =
     list.kind === 'all'
       ? lists
@@ -58,6 +65,7 @@ export function TaskList({
                   key={task.id}
                   task={task}
                   onDelete={deleteTask}
+                  onMove={moveTask}
                   onToggle={toggleTask}
                   onUpdate={updateTask}
                 />
@@ -65,16 +73,33 @@ export function TaskList({
             </View>
           ))
         ) : (
-          visibleTasks.map(task => (
-            <TaskRow
-              key={task.id}
-              sourceListName={list.kind === 'today' || list.kind === 'completed' ? getTaskList(task, lists)?.name : undefined}
-              task={task}
-              onDelete={deleteTask}
-              onToggle={toggleTask}
-              onUpdate={updateTask}
-            />
-          ))
+          visibleTasks.map(task => {
+            const reorderIndex = reorderableTaskIds.indexOf(task.id);
+            return (
+              <TaskRow
+                key={task.id}
+                sourceListName={list.kind === 'today' || list.kind === 'completed' ? getTaskList(task, lists)?.name : undefined}
+                task={task}
+                canMoveDown={reorderIndex !== -1 && reorderIndex < reorderableTaskIds.length - 1}
+                canMoveUp={reorderIndex > 0}
+                dragOverPosition={dragOverTaskId === task.id ? dragOverPosition : null}
+                draggingTaskId={draggingTaskId}
+                onDelete={deleteTask}
+                onMove={moveTask}
+                onTaskDragEnd={() => {
+                  setDraggingTaskId(null);
+                  setDragOverTaskId(null);
+                }}
+                onTaskDragOver={(taskId, position) => {
+                  setDragOverTaskId(taskId);
+                  setDragOverPosition(position);
+                }}
+                onTaskDragStart={setDraggingTaskId}
+                onToggle={toggleTask}
+                onUpdate={updateTask}
+              />
+            );
+          })
         )}
 
         {completedTasks.length > 0 && (
@@ -85,6 +110,7 @@ export function TaskList({
                 key={task.id}
                 task={task}
                 onDelete={deleteTask}
+                onMove={moveTask}
                 onToggle={toggleTask}
                 onUpdate={updateTask}
               />
