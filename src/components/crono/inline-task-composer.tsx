@@ -3,7 +3,6 @@ import { useMemo, useRef, useState } from 'react';
 import { Text, View } from '@/tw';
 import { cn } from '@/utils/cn';
 
-import { CronoIcon } from './crono-icon';
 import { HighlightedTaskInput } from './highlighted-task-input';
 import { cleanTaskTitle, parseTaskInput } from './task-parser';
 import type { Recurrence } from './types';
@@ -63,9 +62,7 @@ export function InlineTaskComposer({
         'mb-2.5 flex-row items-start gap-3 rounded-lg border bg-white p-3',
         taskTitle.length === 0 ? 'border-dashed border-slate-300' : 'border-gray-200'
       )}>
-      <View className="mt-px h-[22px] w-[22px] items-center justify-center rounded-[10px] border-[1.5px] border-gray-400">
-        <CronoIcon color="#9ca3af" name="add" size={13} strokeWidth={2} />
-      </View>
+      <View className="mt-px h-[22px] w-[22px] rounded-[10px] border-[1.5px] border-gray-400" />
       <View className="flex-1">
         <HighlightedTaskInput
           value={taskTitle}
