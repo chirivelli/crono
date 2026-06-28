@@ -6,14 +6,19 @@ import { Pressable, SafeAreaView, ScrollView, Text, TextInput, View } from '@/tw
 import { CronoIcon, ListIcon } from './crono-icon';
 import { useCrono } from './crono-context';
 import { canDeleteList, getListCount } from './list-filters';
+import { cn } from '@/utils/cn';
 
 export function CronoListsPage() {
-  const { lists, tasks, recentlyCompletedTaskIds, addList, renameList, deleteList } = useCrono();
+  const { lists, tasks, recentlyCompletedTaskIds, addList, renameList, deleteList, moveList } = useCrono();
   const [newListName, setNewListName] = useState('');
   const [isCreatingList, setIsCreatingList] = useState(false);
   const [openOptionsListId, setOpenOptionsListId] = useState<string | null>(null);
   const [editingListId, setEditingListId] = useState<string | null>(null);
   const [editingListName, setEditingListName] = useState('');
+  const [draggingListId, setDraggingListId] = useState<string | null>(null);
+  const [dragOverListId, setDragOverListId] = useState<string | null>(null);
+  const [dragOverPosition, setDragOverPosition] = useState<'before' | 'after'>('before');
+  const reorderableLists = lists.filter(canDeleteList);
 
   function createList() {
     const trimmed = newListName.trim();
@@ -89,80 +94,170 @@ export function CronoListsPage() {
             const count = getListCount(list, tasks, recentlyCompletedTaskIds);
             const optionsOpen = openOptionsListId === list.id;
             const canShowOptions = !isSmartOrInbox(list);
+            const canReorder = canDeleteList(list) && reorderableLists.length > 1;
+            const isDragging = draggingListId === list.id;
+            const isDropTarget = canReorder && draggingListId !== null && draggingListId !== list.id;
+            const rowDataSet: Record<string, string> = {
+              listRow: list.id,
+              optionsOpen: optionsOpen ? 'true' : 'false',
+            };
+            if (canReorder) {
+              rowDataSet.listReorderId = list.id;
+            }
+            const dragHandleProps = canReorder
+              ? ({
+                  onMouseDown: (event: {
+                    clientX: number;
+                    clientY: number;
+                    preventDefault: () => void;
+                    stopPropagation: () => void;
+                  }) => {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    setOpenOptionsListId(null);
+                    setDraggingListId(list.id);
+
+                    const getDropTarget = (clientX: number, clientY: number) => {
+                      const dropTarget = document
+                        .elementFromPoint(clientX, clientY)
+                        ?.closest('[data-list-reorder-id]');
+                      const targetListId = dropTarget?.getAttribute('data-list-reorder-id') ?? null;
+                      if (!dropTarget || !targetListId || targetListId === list.id) {
+                        return null;
+                      }
+
+                      const bounds = dropTarget.getBoundingClientRect();
+                      const position: 'before' | 'after' =
+                        clientY < bounds.top + bounds.height / 2 ? 'before' : 'after';
+                      return { position, targetListId };
+                    };
+
+                    const handleMouseMove = (mouseEvent: MouseEvent) => {
+                      const dropTarget = getDropTarget(mouseEvent.clientX, mouseEvent.clientY);
+                      if (dropTarget) {
+                        setDragOverListId(dropTarget.targetListId);
+                        setDragOverPosition(dropTarget.position);
+                      }
+                    };
+
+                    const handleMouseUp = (mouseEvent: MouseEvent) => {
+                      const dropTarget = getDropTarget(mouseEvent.clientX, mouseEvent.clientY);
+                      if (dropTarget) {
+                        moveList(list.id, dropTarget.targetListId, dropTarget.position);
+                      }
+
+                      setDraggingListId(null);
+                      setDragOverListId(null);
+                      document.removeEventListener('mousemove', handleMouseMove);
+                      document.removeEventListener('mouseup', handleMouseUp);
+                    };
+
+                    document.addEventListener('mousemove', handleMouseMove);
+                    document.addEventListener('mouseup', handleMouseUp);
+                  },
+                } as never)
+              : {};
             return (
-              <Pressable
-                key={list.id}
-                dataSet={{ listRow: list.id, optionsOpen: optionsOpen ? 'true' : 'false' }}
-                onLongPress={() => {
-                  if (canShowOptions) {
-                    setOpenOptionsListId(list.id);
-                  }
-                }}
-                onPress={() => {
-                  setOpenOptionsListId(null);
-                  router.push(`/lists/${list.id}`);
-                }}
-                className={optionsOpen ? 'relative z-50 min-h-14 flex-row items-center gap-3 rounded-lg border border-gray-200 bg-white px-4 py-3' : 'relative z-0 min-h-14 flex-row items-center gap-3 rounded-lg border border-gray-200 bg-white px-4 py-3'}>
-                <View className="h-9 w-9 items-center justify-center rounded-lg bg-gray-100">
-                  <ListIcon color={list.color} list={list} size={19} />
-                </View>
-                {editingListId === list.id ? (
-                  <TextInput
-                    autoFocus
-                    value={editingListName}
-                    onChangeText={setEditingListName}
-                    onBlur={() => submitRename(list)}
-                    onSubmitEditing={() => submitRename(list)}
-                    returnKeyType="done"
-                    className="min-h-[34px] flex-1 rounded-md border border-gray-200 bg-white px-2 text-base font-semibold text-gray-900"
-                  />
-                ) : (
-                  <Text className="flex-1 text-base font-semibold text-gray-900">{list.name}</Text>
+              <View key={list.id} className="relative">
+                {isDropTarget && dragOverListId === list.id && dragOverPosition === 'before' && (
+                  <View className="absolute -top-[5px] left-0 right-0 z-20 h-[3px] rounded-full bg-blue-500" />
                 )}
-                {canShowOptions ? (
-                  <Pressable
-                    accessibilityLabel={`${list.name} options`}
-                    onPress={event => {
-                      event.stopPropagation();
-                      setOpenOptionsListId(current => (current === list.id ? null : list.id));
-                    }}
-                    className="relative w-10 items-end justify-center">
-                    <Text dataSet={{ listCount: list.id }} className="text-right text-base font-bold text-gray-400">
-                      {count}
-                    </Text>
-                    <View dataSet={{ listMenu: list.id }} className="absolute right-0 w-10 items-end justify-center">
-                      <CronoIcon color="#9ca3af" name="more" size={19} />
-                    </View>
-                    {optionsOpen && (
-                      <View className="absolute right-0 top-8 z-50 min-w-32 rounded-lg border border-gray-200 bg-white p-1 shadow-lg">
-                        <Pressable
-                          onPress={event => {
-                            event.stopPropagation();
-                            startRename(list);
-                          }}
-                          className="rounded-md px-3 py-2">
-                          <Text className="text-[15px] font-semibold text-gray-900">Rename</Text>
-                        </Pressable>
-                        {canDeleteList(list) && (
+                <Pressable
+                  dataSet={rowDataSet}
+                  onLongPress={() => {
+                    if (canShowOptions) {
+                      setOpenOptionsListId(list.id);
+                    }
+                  }}
+                  onPress={() => {
+                    setOpenOptionsListId(null);
+                    router.push(`/lists/${list.id}`);
+                  }}
+                  className={cn(
+                    'relative min-h-14 flex-row items-center gap-3 rounded-lg border border-gray-200 bg-white px-4 py-3',
+                    optionsOpen ? 'z-50' : 'z-0',
+                    isDragging && 'opacity-50'
+                  )}>
+                  <View className="h-9 w-9 items-center justify-center rounded-lg bg-gray-100">
+                    <ListIcon color={list.color} list={list} size={19} />
+                  </View>
+                  {editingListId === list.id ? (
+                    <TextInput
+                      autoFocus
+                      value={editingListName}
+                      onChangeText={setEditingListName}
+                      onBlur={() => submitRename(list)}
+                      onSubmitEditing={() => submitRename(list)}
+                      returnKeyType="done"
+                      className="min-h-[34px] flex-1 rounded-md border border-gray-200 bg-white px-2 text-base font-semibold text-gray-900"
+                    />
+                  ) : (
+                    <Text className="flex-1 text-base font-semibold text-gray-900">{list.name}</Text>
+                  )}
+                  {canShowOptions ? (
+                    <Pressable
+                      accessibilityLabel={`${list.name} options`}
+                      onPress={event => {
+                        event.stopPropagation();
+                        setOpenOptionsListId(current => (current === list.id ? null : list.id));
+                      }}
+                      className="relative w-10 items-end justify-center">
+                      <Text dataSet={{ listCount: list.id }} className="text-right text-base font-bold text-gray-400">
+                        {count}
+                      </Text>
+                      <View dataSet={{ listMenu: list.id }} className="absolute right-0 w-10 items-end justify-center">
+                        <CronoIcon color="#9ca3af" name="more" size={19} />
+                      </View>
+                      {optionsOpen && (
+                        <View className="absolute right-0 top-8 z-50 min-w-32 rounded-lg border border-gray-200 bg-white p-1 shadow-lg">
                           <Pressable
                             onPress={event => {
                               event.stopPropagation();
-                              setOpenOptionsListId(null);
-                              deleteList(list);
+                              startRename(list);
                             }}
                             className="rounded-md px-3 py-2">
-                            <Text className="text-[15px] font-semibold text-red-600">Delete</Text>
+                            <Text className="text-[15px] font-semibold text-gray-900">Rename</Text>
                           </Pressable>
-                        )}
+                          {canDeleteList(list) && (
+                            <Pressable
+                              onPress={event => {
+                                event.stopPropagation();
+                                setOpenOptionsListId(null);
+                                deleteList(list);
+                              }}
+                              className="rounded-md px-3 py-2">
+                              <Text className="text-[15px] font-semibold text-red-600">Delete</Text>
+                            </Pressable>
+                          )}
+                        </View>
+                      )}
+                    </Pressable>
+                  ) : (
+                    <View className="relative w-10 items-end justify-center">
+                      <Text className="text-right text-base font-bold text-gray-400">{count}</Text>
+                    </View>
+                  )}
+                  {canReorder && (
+                    <Pressable
+                      {...dragHandleProps}
+                      accessibilityLabel={`Reorder ${list.name}`}
+                      onPress={event => event.stopPropagation()}
+                      className="h-7 w-5 cursor-grab items-center justify-center rounded-md active:cursor-grabbing">
+                      <View className="gap-[3px]">
+                        {[0, 1, 2].map(row => (
+                          <View key={row} className="flex-row gap-[4px]">
+                            <View className="h-[3px] w-[3px] rounded-full bg-gray-400" />
+                            <View className="h-[3px] w-[3px] rounded-full bg-gray-400" />
+                          </View>
+                        ))}
                       </View>
-                    )}
-                  </Pressable>
-                ) : (
-                  <View className="relative w-10 items-end justify-center">
-                    <Text className="text-right text-base font-bold text-gray-400">{count}</Text>
-                  </View>
+                    </Pressable>
+                  )}
+                </Pressable>
+                {isDropTarget && dragOverListId === list.id && dragOverPosition === 'after' && (
+                  <View className="absolute -bottom-[5px] left-0 right-0 z-20 h-[3px] rounded-full bg-blue-500" />
                 )}
-              </Pressable>
+              </View>
             );
           })}
         </View>

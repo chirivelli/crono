@@ -13,6 +13,7 @@ type CronoContextValue = {
   addList: (name: string) => CronoList;
   renameList: (list: CronoList, name: string) => void;
   deleteList: (list: CronoList) => Promise<void>;
+  moveList: (listId: string, targetListId: string, position: 'before' | 'after') => void;
   addTask: (input: TaskInput) => Promise<void>;
   updateTask: (task: Task, input: TaskUpdateInput) => Promise<void>;
   deleteTask: (task: Task) => Promise<void>;
@@ -70,6 +71,34 @@ export function CronoProvider({ children }: { children: ReactNode }) {
     await Promise.all(listTasks.map(task => cancelReminder(task.notificationId)));
     setTasks(current => current.filter(task => task.listId !== list.id));
     setLists(current => current.filter(item => item.id !== list.id));
+  }
+
+  function moveList(listId: string, targetListId: string, position: 'before' | 'after') {
+    setLists(current => {
+      const reorderableLists = current.filter(canDeleteList);
+      const currentListIndex = reorderableLists.findIndex(list => list.id === listId);
+      const targetListIndex = reorderableLists.findIndex(list => list.id === targetListId);
+      if (currentListIndex === -1 || targetListIndex === -1 || currentListIndex === targetListIndex) {
+        return current;
+      }
+
+      const reorderedLists = [...reorderableLists];
+      const [movedList] = reorderedLists.splice(currentListIndex, 1);
+      const adjustedTargetIndex = currentListIndex < targetListIndex ? targetListIndex - 1 : targetListIndex;
+      const insertionIndex = position === 'after' ? adjustedTargetIndex + 1 : adjustedTargetIndex;
+      reorderedLists.splice(insertionIndex, 0, movedList);
+
+      let nextListIndex = 0;
+      return current.map(list => {
+        if (!canDeleteList(list)) {
+          return list;
+        }
+
+        const nextList = reorderedLists[nextListIndex];
+        nextListIndex += 1;
+        return nextList;
+      });
+    });
   }
 
   async function addTask(input: TaskInput) {
@@ -195,7 +224,7 @@ export function CronoProvider({ children }: { children: ReactNode }) {
 
   return (
     <CronoContext.Provider
-      value={{ lists, tasks, recentlyCompletedTaskIds, addList, renameList, deleteList, addTask, updateTask, deleteTask, moveTask, toggleTask }}>
+      value={{ lists, tasks, recentlyCompletedTaskIds, addList, renameList, deleteList, moveList, addTask, updateTask, deleteTask, moveTask, toggleTask }}>
       {children}
     </CronoContext.Provider>
   );
